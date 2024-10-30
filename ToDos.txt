@@ -1,0 +1,15 @@
+FSM para el menu, juego y gameover
+
+spawner para crear enemigos
+
+jugador (movimientos ASWD) (si el jugador toca los bordes muere)
+
+Cuando el jugador clica "space" cambia de color (de azul a rojo de rojo a amarillo de amarillo a verde y de verde a azul)(debe tener un cooldown) (como en el A3)
+
+Cuando el jugador toca un enemigo de su mismo color suma un punto y hace desaparecer al enemigo
+
+Si toca un enemigo de otro color muere
+
+Cuando el jugador muere pantala de game over con la puntuación y botón de volver al menu, reiniciar o salir.
+
+cuando el jugador obtiene 10 puntos aumenta su tamaño (hace que la dificultad se progresiva ya que al ser más grande más dificil evitar otras bolas)
