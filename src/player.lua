@@ -15,20 +15,22 @@ function Player:new()
   self.yellowImage = love.graphics.newImage("src/textures/p_yellow_small.png")
   self.greenImage = love.graphics.newImage("src/textures/p_green_small.png")
   self.spacePressed = false
+  self.position.x = w/2
+  self.position.y = h/2
   
 
 end
 
 function Player:update(dt)
     
-   -- Movimiento en el eje Y (arriba y abajo)
+  --print (self.position.x , self.position.y)
+   
    if love.keyboard.isDown("w") then
     self.position.y = self.position.y - self.speed * dt
 elseif love.keyboard.isDown("s") then
   self.position.y = self.position.y + self.speed * dt
 end
 
--- Movimiento en el eje X (izquierda y derecha)
 if love.keyboard.isDown("a") then
   self.position.x = self.position.x - self.speed * dt
 elseif love.keyboard.isDown("d") then
@@ -52,6 +54,8 @@ for k, v in ipairs (actorList) do
     local d = self:checkCollision(v)
     if d == true  then        
       if v.color == self.color then
+        puntuation = puntuation+1
+        print("Puntuation: "..puntuation)
      table.remove(actorList, k)
       elseif v.color ~= self.color then
       -- Ir a pantalla de game over
@@ -63,6 +67,8 @@ for k, v in ipairs (actorList) do
   end
 end
 
+
+self:Bounderies()
 
 end
 
@@ -94,6 +100,12 @@ function Player:ChangeColor()
   end 
 end
 
-
+function Player:Bounderies()
+  local w, h = love.graphics.getDimensions()
+if (self.position.x - (self.width/2) )< 0 or self.position.x + (self.width/2) > w then print("GAMEOVER")
+end
+if (self.position.y - (self.height/2) ) < 0 or self.position.y + (self.height/2)  > h then print("GAMEOVER")
+end
+end
 
 return Player

@@ -9,10 +9,8 @@ actorList = {}
 function love.load() 
   local p = Player()
   table.insert(actorList,p )
- local e = Enemy()
- table.insert(actorList, e)
-  --ocal s = Spawner(1, false)
-  --table.insert(actorList, s)
+  local s = Spawner(2, true)
+  table.insert(actorList, s)
 end
 
 function love.update(dt)

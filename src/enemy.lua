@@ -11,6 +11,7 @@ function Enemy:new(_time, _repeat)
     self.yellowImage = love.graphics.newImage("src/textures/e_yellow.png")
     self.greenImage = love.graphics.newImage("src/textures/e_green.png")
 
+    self.speed = 50
 
     Enemy.super.new(self, self.image, 0, 0, 0)
     self:SetColor()       
@@ -21,6 +22,7 @@ end
 
 function Enemy:update(dt)   
 
+    self.position = self.position + self.forward * self.speed * dt
 
 end
 
