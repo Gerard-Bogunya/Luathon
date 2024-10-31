@@ -23,29 +23,9 @@ end
 
 function Player:update(dt)
     
-  --print (self.position.x , self.position.y)
-   
-   if love.keyboard.isDown("w") then
-    self.position.y = self.position.y - self.speed * dt
-elseif love.keyboard.isDown("s") then
-  self.position.y = self.position.y + self.speed * dt
-end
-
-if love.keyboard.isDown("a") then
-  self.position.x = self.position.x - self.speed * dt
-elseif love.keyboard.isDown("d") then
-  self.position.x = self.position.x + self.speed * dt
-self.forward = Vector(1,-1)    
-end
-
-if love.keyboard.isDown("space") then
-  if not self.spacePressed then
-     self:SetColor(self.color)
-     self.spacePressed = true  -- Evita cambios adicionales hasta que se suelte "space"
-  end
-else
-  self.spacePressed = false  -- Permite cambiar de color nuevamente cuando se suelte "space"
-end
+  self:Movement(dt)
+  self:Boundaries()
+  self:SpacePressed()
 
 local removePlayer = false
 
@@ -59,16 +39,11 @@ for k, v in ipairs (actorList) do
      table.remove(actorList, k)
       elseif v.color ~= self.color then
       -- Ir a pantalla de game over
-      print ("GAME OVER")
-
-    
+      print ("GAME OVER")    
     end
     end
   end
 end
-
-
-self:Bounderies()
 
 end
 
@@ -100,12 +75,39 @@ function Player:ChangeColor()
   end 
 end
 
-function Player:Bounderies()
+function Player:Boundaries()
   local w, h = love.graphics.getDimensions()
 if (self.position.x - (self.width/2) )< 0 or self.position.x + (self.width/2) > w then print("GAMEOVER")
 end
 if (self.position.y - (self.height/2) ) < 0 or self.position.y + (self.height/2)  > h then print("GAMEOVER")
 end
+end
+
+function Player:Movement(dt)
+     
+  if love.keyboard.isDown("w") then
+    self.position.y = self.position.y - self.speed * dt
+elseif love.keyboard.isDown("s") then
+  self.position.y = self.position.y + self.speed * dt
+end
+
+if love.keyboard.isDown("a") then
+  self.position.x = self.position.x - self.speed * dt
+elseif love.keyboard.isDown("d") then
+  self.position.x = self.position.x + self.speed * dt
+self.forward = Vector(1,-1)    
+end
+end
+
+function Player:SpacePressed()
+  if love.keyboard.isDown("space") then
+    if not self.spacePressed then
+       self:SetColor(self.color)
+       self.spacePressed = true  -- Evita cambios adicionales hasta que se suelte "space"
+    end
+  else
+    self.spacePressed = false  -- Permite cambiar de color nuevamente cuando se suelte "space"
+  end
 end
 
 return Player
