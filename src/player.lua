@@ -1,9 +1,10 @@
 local Actor = Actor or require "src/actor"
 local Vector = Vector or require "lib/vector"
 local Player = Actor:extend()
+w, h = love.graphics.getDimensions()
 
 function Player:new()   
-  Player.super.new(self, "src/textures/p_blue_small.png", 180, 540, 0)
+  Player.super.new(self, "src/textures/p_blue_small.png", w/2, h/2, 0)
   self.speed = 250    
   self.color = "blue"
   self.blueImage = love.graphics.newImage("src/textures/p_blue_small.png")
@@ -18,16 +19,16 @@ end
 function Player:update(dt)
     
    -- Movimiento en el eje Y (arriba y abajo)
-   if love.keyboard.isDown("up") then
+   if love.keyboard.isDown("w") then
     self.position.y = self.position.y - self.speed * dt
-elseif love.keyboard.isDown("down") then
+elseif love.keyboard.isDown("s") then
   self.position.y = self.position.y + self.speed * dt
 end
 
 -- Movimiento en el eje X (izquierda y derecha)
-if love.keyboard.isDown("left") then
+if love.keyboard.isDown("a") then
   self.position.x = self.position.x - self.speed * dt
-elseif love.keyboard.isDown("right") then
+elseif love.keyboard.isDown("d") then
   self.position.x = self.position.x + self.speed * dt
 self.forward = Vector(1,-1)    
 end
