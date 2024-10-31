@@ -3,6 +3,7 @@ local Actor = Actor or require "src/actor"
 local Spawner = Spawner or require "src/spawner"
 local Player = Player or require "src/player"
 local Enemy = Enemy or require "src/enemy"
+local Hud = Hud or require "src/hud"
 
 actorList = {}
 
@@ -11,6 +12,8 @@ function love.load()
   table.insert(actorList,p )
   local s = Spawner(2, true)
   table.insert(actorList, s)
+  local hud = Hud()
+  table.insert(actorList, hud)
 end
 
 function love.update(dt)

@@ -3,7 +3,7 @@ local Vector = Vector or require "lib/vector"
 local Player = Actor:extend()
 local Enemy = Enemy or require "src/enemy"
 
-puntuation = 0
+
 
 function Player:new()   
   local w, h = love.graphics.getDimensions()
@@ -17,6 +17,10 @@ function Player:new()
   self.spacePressed = false
   self.position.x = w/2
   self.position.y = h/2
+
+  self.points = 0
+
+  self.lifes = 3
   
 
 end
@@ -34,12 +38,14 @@ for k, v in ipairs (actorList) do
     local d = self:checkCollision(v)
     if d == true  then        
       if v.color == self.color then
-        puntuation = puntuation+1
-        print("Puntuation: "..puntuation)
+        self.points = self.points + 1        
      table.remove(actorList, k)
       elseif v.color ~= self.color then
-      -- Ir a pantalla de game over
-      print ("GAME OVER")    
+        if self.lifes <= 0 then print ("GAMEOVER") -- Ir a pantalla de game over
+        else      
+        self.lifes = self.lifes - 1
+        table.remove(actorList, k)
+        end
     end
     end
   end
