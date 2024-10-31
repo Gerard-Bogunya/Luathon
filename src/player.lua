@@ -41,7 +41,9 @@ for k, v in ipairs (actorList) do
         self.points = self.points + 1        
      table.remove(actorList, k)
       elseif v.color ~= self.color then
-        if self.lifes <= 0 then print ("GAMEOVER") -- Ir a pantalla de game over
+        if self.lifes <= 1 then 
+          self.lifes = 0
+          print ("GAMEOVER") -- Ir a pantalla de game over
         else      
         self.lifes = self.lifes - 1
         table.remove(actorList, k)
