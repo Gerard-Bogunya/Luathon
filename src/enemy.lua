@@ -5,7 +5,7 @@ local Enemy = Actor:extend()
 math.randomseed(os.time())
 
 function Enemy:new(_time, _repeat)  
-
+    self.color = nill
     self.blueImage = love.graphics.newImage("src/textures/e_blue.png")
     self.redImage = love.graphics.newImage("src/textures/e_red.png")
     self.yellowImage = love.graphics.newImage("src/textures/e_yellow.png")
@@ -19,7 +19,9 @@ function Enemy:new(_time, _repeat)
     
 end
 
-function Enemy:update(dt)
+function Enemy:update(dt)   
+
+
 end
 
 function Enemy:trigger()
@@ -38,10 +40,18 @@ end
 function Enemy:SetColor()
     local color = math.random(1,4)
 
-if color == 1 then self.image = self.blueImage
-elseif color == 2 then  self.image = self.greenImage
-elseif color == 3 then  self.image = self.redImage
-elseif color == 4 then  self.image = self.yellowImage
+if color == 1 then 
+    self.image = self.blueImage
+    self.color = "blue" 
+elseif color == 2 then  
+    self.image = self.greenImage
+    self.color = "green"
+elseif color == 3 then  
+    self.image = self.redImage
+    self.color = "red"
+elseif color == 4 then  
+    self.image = self.yellowImage
+    self.color = "yellow"
 end
 
 end

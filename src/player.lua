@@ -1,9 +1,12 @@
 local Actor = Actor or require "src/actor"
 local Vector = Vector or require "lib/vector"
 local Player = Actor:extend()
-w, h = love.graphics.getDimensions()
+local Enemy = Enemy or require "src/enemy"
+
+puntuation = 0
 
 function Player:new()   
+  local w, h = love.graphics.getDimensions()
   Player.super.new(self, "src/textures/p_blue_small.png", w/2, h/2, 0)
   self.speed = 250    
   self.color = "blue"
@@ -40,6 +43,24 @@ if love.keyboard.isDown("space") then
   end
 else
   self.spacePressed = false  -- Permite cambiar de color nuevamente cuando se suelte "space"
+end
+
+local removePlayer = false
+
+for k, v in ipairs (actorList) do
+  if v:is(Enemy)then 
+    local d = self:checkCollision(v)
+    if d == true  then        
+      if v.color == self.color then
+     table.remove(actorList, k)
+      elseif v.color ~= self.color then
+      -- Ir a pantalla de game over
+      print ("GAME OVER")
+
+    
+    end
+    end
+  end
 end
 
 
