@@ -2,6 +2,7 @@ local Actor = Actor or require "src/actor"
 local Vector = Vector or require "lib/vector"
 local Enemy = Actor:extend()
 
+
 math.randomseed(os.time())
 
 function Enemy:new(_time, _repeat)  
@@ -17,17 +18,29 @@ function Enemy:new(_time, _repeat)
     self:RandomOrigin()   
     self.forward = Vector(1,0)
     self.speed = 100
-    self:RandomAngle()
-
-    
+    self:RandomAngle()   
+    self.state = "appearing"
+    self.timer = 0
+    self.timeToAppear = 1
     
     
 end
 
 function Enemy:update(dt)   
 
-    
-    self:Movement(dt)
+self.timer = self.timer + dt
+
+if self.timeToAppear > self.timer then
+
+ self.state = "appearing"
+end
+
+if self.timeToAppear < self.timer then
+  self.state = "moving" 
+  self:Movement(dt)
+ 
+end
+
 
 end
 
@@ -36,7 +49,7 @@ function Enemy:draw()
     local ox = self.origin.x
     local yy = self.position.y
     local oy = self.origin.y
-    local rr = self.rot  
+    local rr = self.rot     
     love.graphics.draw(self.image, xx, yy, rr, 1, 1, ox, oy)   
 end
 
@@ -62,7 +75,7 @@ function Enemy:RandomOrigin()
     w, h = love.graphics.getDimensions()
     self.position.x = math.random(50, w-50)
     self.position.y = math.random(50, h-50)
-    print (self.position.x, self.position.y)
+   
     
 end
 function Enemy:RandomAngle()

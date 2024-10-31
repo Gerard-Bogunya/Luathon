@@ -3,7 +3,7 @@ local Vector = Vector or require "lib/vector"
 local Player = Actor:extend()
 local Enemy = Enemy or require "src/enemy"
 
-
+eDeletedList = {}
 
 function Player:new()   
   local w, h = love.graphics.getDimensions()
@@ -21,6 +21,8 @@ function Player:new()
   self.points = 0
 
   self.lifes = 3
+
+  
   
 
 end
@@ -30,28 +32,12 @@ function Player:update(dt)
   self:Movement(dt)
   self:Boundaries()
   self:SpacePressed()
+  self:EnemyCollision()
 
-local removePlayer = false
 
-for k, v in ipairs (actorList) do
-  if v:is(Enemy)then 
-    local d = self:checkCollision(v)
-    if d == true  then        
-      if v.color == self.color then
-        self.points = self.points + 1        
-     table.remove(actorList, k)
-      elseif v.color ~= self.color then
-        if self.lifes <= 1 then 
-          self.lifes = 0
-          print ("GAMEOVER") -- Ir a pantalla de game over
-        else      
-        self.lifes = self.lifes - 1
-        table.remove(actorList, k)
-        end
-    end
-    end
-  end
-end
+
+
+
 
 end
 
@@ -117,5 +103,34 @@ function Player:SpacePressed()
     self.spacePressed = false  -- Permite cambiar de color nuevamente cuando se suelte "space"
   end
 end
+
+function Player:EnemyCollision() 
+  
+for k, v in ipairs (actorList) do
+  if v:is(Enemy)then 
+    local d = self:checkCollision(v)
+    if d == true  then        
+      if v.color == self.color then
+        self.points = self.points + 1 
+        table.insert(eDeletedList, v.color)       
+     table.remove(actorList, k)
+      elseif v.color ~= self.color then
+        if self.lifes <= 1 then 
+          self.lifes = 0
+          print ("GAMEOVER") -- Ir a pantalla de game over
+        else      
+        self.lifes = self.lifes - 1
+        table.remove(actorList, k)
+        end
+    end
+    end
+  end
+end
+end
+
+for i, value in ipairs(eDeletedList) do
+  print("enemies deleted list: " .. i .. ": " .. value)
+end
+print ("hola")
 
 return Player
