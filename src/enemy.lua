@@ -50,7 +50,7 @@ function Enemy:draw()
     local yy = self.position.y
     local oy = self.origin.y
     local rr = self.rot     
-    love.graphics.draw(self.image, xx, yy, rr, 1, 1, ox, oy)   
+    love.graphics.draw(self.image, xx, yy, 0, 1, 1, ox, oy)   
 end
 
 function Enemy:SetColor()
@@ -91,23 +91,27 @@ function Enemy:Movement(dt)
     if(self.position.x - (self.width/2)  < 0) then
         self.rot = math.pi - self.rot
         self.speed = self.speed + 50
+        
        
     end
     if(self.position.x + (self.width/2)  > w) then
         self.rot = math.pi - self.rot
         self.speed = self.speed + 50
+         
         
     end   
     
     if(self.position.y - (self.height/2) < 0) then         
         self.rot = self.rot * (-1)
         self.speed = self.speed + 50
+         
         
     end
     
     if(self.position.y + (self.height/2) > h) then      
         self.rot = self.rot * (-1)
         self.speed = self.speed + 50
+         
         
     end
 
