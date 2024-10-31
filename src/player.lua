@@ -22,6 +22,8 @@ function Player:new()
 
   self.lifes = 3
 
+  self.racha = 0
+
   
   
 
@@ -106,13 +108,31 @@ end
 
 function Player:EnemyCollision() 
   
+  
 for k, v in ipairs (actorList) do
   if v:is(Enemy)then 
     local d = self:checkCollision(v)
     if d == true  then        
       if v.color == self.color then
         self.points = self.points + 1 
-        table.insert(eDeletedList, v.color)       
+        
+        --[[table.insert(eDeletedList, v.color)     --ESTOY INTENTANDO IMPLEMNATAR UNA RACHA DE COLORES
+
+        for i, value in ipairs(eDeletedList) do
+          if i == 1 then print("primero de la racha")
+        elseif i > 1 then
+          if eDeletedList[#eDeletedList] == eDeletedList[#eDeletedList-1] then print ("racha del mismo color")
+            self.racha = self.racha+1
+            print(self.racha)     
+          elseif eDeletedList[i] ~= eDeletedList[i-1] then 
+            print ("final de la racha")
+            for k in ipairs(eDeletedList) do
+              eDeletedList[k] = nil
+          end
+          end
+          end        
+        end  ]] 
+
      table.remove(actorList, k)
       elseif v.color ~= self.color then
         if self.lifes <= 1 then 
@@ -128,9 +148,7 @@ for k, v in ipairs (actorList) do
 end
 end
 
-for i, value in ipairs(eDeletedList) do
-  print("enemies deleted list: " .. i .. ": " .. value)
-end
-print ("hola")
+
+
 
 return Player
