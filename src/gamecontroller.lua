@@ -22,6 +22,9 @@ function GameController:new()
     o.isTransitioning = false
     o.showMessage = nil
     o.transitionTimer = 0
+    o.transitionCallback = nil
+
+    o.returningToMenu = false
 
     return o
 end
@@ -54,7 +57,6 @@ function GameController:update(dt)
     end
 
     if self.state == "playing" then
-        -- movimiento enemigo
         for _, m in ipairs(self.monsters) do
             if not m.caught then
                 m.changeDirTimer = m.changeDirTimer - dt
@@ -62,7 +64,6 @@ function GameController:update(dt)
                     m.dir = math.random() * math.pi * 2
                     m.changeDirTimer = 0.5 + math.random() * 1.5
                 end
-
                 m.x = m.x + math.cos(m.dir) * m.speed * dt
                 m.y = m.y + math.sin(m.dir) * m.speed * dt
 
@@ -73,18 +74,16 @@ function GameController:update(dt)
             end
         end
 
-        -- tiempo
-      if self.caughtThisLevel < self.targetThisLevel then
-        if self.timeLeft > 0 then
-            self.timeLeft = self.timeLeft - dt
-            if self.timeLeft <= 0 then
-                self.timeLeft = 0 -- evita negativos
-                self:gameOver()
+        if self.caughtThisLevel < self.targetThisLevel then
+            if self.timeLeft > 0 then
+                self.timeLeft = self.timeLeft - dt
+                if self.timeLeft <= 0 then
+                    self.timeLeft = 0
+                    self:gameOver()
+                end
             end
         end
-    end
 
-        -- completar nivel
         if self.caughtThisLevel >= self.targetThisLevel then
             self:levelComplete()
         end
@@ -99,7 +98,6 @@ function GameController:draw()
     love.graphics.clear(0.05, 0.05, 0.07)
 
     if self.state == "playing" then
-        -- enemigos
         for _, m in ipairs(self.monsters) do
             if not m.caught then
                 love.graphics.setColor(1, 0.3, 0.3)
@@ -110,7 +108,6 @@ function GameController:draw()
             end
         end
 
-        -- oscuridad y linterna
         local mx, my = love.mouse.getPosition()
         love.graphics.stencil(function()
             love.graphics.circle("fill", mx, my, self.lightRadius)
@@ -119,7 +116,6 @@ function GameController:draw()
         love.graphics.setColor(0, 0, 0, 1)
         love.graphics.rectangle("fill", 0, 0, w, h)
         love.graphics.setStencilTest()
-
         self.ui:draw()
 
     elseif self.state == "upgrade" then
@@ -135,15 +131,31 @@ function GameController:draw()
             local textHeight = font:getHeight()
             local x = (w / 2) - (textWidth / 2)
             local y = h * 0.4 + (i - 1) * 80
-
             local hovered = mx >= x and mx <= x + textWidth and my >= y and my <= y + textHeight
-
             love.graphics.setColor(hovered and {1, 0.9, 0.3} or {1, 1, 1})
             love.graphics.print(up.text, x, y)
         end
+
+    elseif self.state == "gameover" then
+        love.graphics.setFont(love.graphics.newFont(40))
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.printf("GAME OVER", 0, h / 2 - 40, w, "center")
+        love.graphics.setFont(love.graphics.newFont(24))
+        love.graphics.printf("Puntuación total: " .. self.score, 0, h / 2 + 10, w, "center")
+
+        love.graphics.setFont(love.graphics.newFont(20))
+        local text = "Haz CLICK para volver al menú"
+        local font = love.graphics.getFont()
+        local textWidth = font:getWidth(text)
+        local x = (w / 2) - (textWidth / 2)
+        local y = h / 2 + 60
+        local mx, my = love.mouse.getPosition()
+        local hovered = mx >= x and mx <= x + textWidth and my >= y and my <= y + font:getHeight()
+        love.graphics.setColor(hovered and {1, 0.9, 0.3} or {1, 1, 1})
+        love.graphics.print(text, x, y)
+        self.gameOverButton = {x = x, y = y, w = textWidth, h = font:getHeight()}
     end
 
-    -- fundido
     if self.transitionAlpha > 0 then
         love.graphics.setColor(0, 0, 0, self.transitionAlpha)
         love.graphics.rectangle("fill", 0, 0, w, h)
@@ -180,21 +192,36 @@ function GameController:mousepressed(x, y, button)
         for i, up in ipairs(self.upgrades) do
             local textWidth = font:getWidth(up.text)
             local textHeight = font:getHeight()
-            local x = (w / 2) - (textWidth / 2)
-            local y = h * 0.4 + (i - 1) * 80
-            if x <= love.mouse.getX() and love.mouse.getX() <= x + textWidth
-               and y <= love.mouse.getY() and love.mouse.getY() <= y + textHeight then
+            local tx = (w / 2) - (textWidth / 2)
+            local ty = h * 0.4 + (i - 1) * 80
+            if x >= tx and x <= tx + textWidth and y >= ty and y <= ty + textHeight then
                 up.apply(self)
                 self:startNextLevel()
                 break
             end
         end
+
+    elseif self.state == "gameover" and self.gameOverButton then
+        local b = self.gameOverButton
+        if x >= b.x and x <= b.x + b.w and y >= b.y and y <= b.y + b.h then
+            self:returnToMenu()
+        end
     end
 end
 
 -- =======================
--- 🔹 Lógica de niveles
+-- 🔹 Transiciones
 -- =======================
+function GameController:returnToMenu()
+    self.isTransitioning = true
+    self.transitionAlpha = 0
+    self.transitionTimer = 0
+    self.showMessage = "Volviendo al menú..."
+    self.transitionCallback = function()
+        self.returningToMenu = true
+    end
+end
+
 function GameController:levelComplete()
     self.score = self.score + math.floor(self.timeLeft * 10)
     self.showMessage = "Level Complete!"
@@ -202,21 +229,22 @@ function GameController:levelComplete()
     self.transitionAlpha = 0
     self.transitionTimer = 0
 end
+
 function GameController:updateTransition(dt)
     self.transitionTimer = self.transitionTimer + dt
-
     if self.transitionTimer < 1 then
-        -- fundido de entrada (pantalla oscurece)
         self.transitionAlpha = math.min(1, self.transitionTimer)
     elseif self.transitionTimer < 2 then
-        -- pantalla totalmente negra, muestra texto
         self.transitionAlpha = 1
     elseif self.transitionTimer < 3 then
-        -- fundido de salida (vuelve a iluminar)
         self.transitionAlpha = math.max(0, 3 - self.transitionTimer)
-
-        -- Cuando el fundido termina (se vuelve transparente)
-        if self.showMessage == "Level Complete!" and self.transitionTimer > 2.9 then
+        if self.transitionCallback and self.transitionTimer > 2.9 then
+            self.transitionCallback()
+            self.transitionCallback = nil
+            self.isTransitioning = false
+            self.transitionTimer = 0
+            self.transitionAlpha = 0
+        elseif self.showMessage == "Level Complete!" and self.transitionTimer > 2.9 then
             self:openUpgradeMenu()
             self.isTransitioning = false
             self.transitionTimer = 0
@@ -227,6 +255,12 @@ function GameController:updateTransition(dt)
             self.transitionAlpha = 0
             self.showMessage = nil
         end
+    end
+
+    -- cuando acaba la transición y hay que volver al menú
+    if self.returningToMenu then
+        gameState = "menu"
+        self.returningToMenu = false
     end
 end
 
@@ -250,12 +284,9 @@ function GameController:startNextLevel()
     self.timeLeft = 30 + (self.level * 3)
     self.targetThisLevel = 5 + self.level
     self.caughtThisLevel = 0
-
-    -- expandir área
     local w, h, flags = love.window.getMode()
     local growth = 70
     love.window.setMode(w + growth, h + math.floor(growth * 0.75), flags)
-
     self:spawnMonsters()
     self.state = "playing"
     self.isTransitioning = true
@@ -265,8 +296,7 @@ function GameController:startNextLevel()
 end
 
 function GameController:gameOver()
-    print("GAME OVER - Puntuación total: " .. self.score)
-    gameState = "menu"
+    self.state = "gameover"
 end
 
 return GameController
