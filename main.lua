@@ -1,70 +1,38 @@
-local Vector = Vector or require "lib/vector"
-local Actor = Actor or require "src/actor"
-local Spawner = Spawner or require "src/spawner"
-local Player = Player or require "src/player"
-local Enemy = Enemy or require "src/enemy"
-local Hud = Hud or require "src/hud"
+-- main.lua
+local Menu = require("src.menu")
+local GameController = require("src.gamecontroller")
 
-actorList = {}
-local gameState = "MainMenu"
+local currentScene = nil
 
-function love.load() 
-  w1, h1 = love.graphics.getDimensions()
-  menu = love.graphics.newImage("src/textures/main_menu.png")
-  p = Player()
-  table.insert(actorList,p )
-  s = Spawner(2, true)
-  table.insert(actorList, s)
-  hud = Hud()
-  table.insert(actorList, hud)
+function love.load()
+    math.randomseed(os.time())
+    love.window.setMode(640, 480, { resizable = false })
+    -- no forzamos resolución (usa la que tengas)
+    currentScene = Menu:new(function()
+        currentScene = GameController:new()
+    end)
 end
 
 function love.update(dt)
-
-if gameState == "Play" then
-  for _, v in ipairs(actorList) do
-    v:update(dt)
-  end
+    if currentScene and currentScene.update then
+        currentScene:update(dt)
+    end
 end
-if p.lifes == 0 then 
-  gameState = "GameOver"
-  end
-end
-
 
 function love.draw()
-if gameState == "MainMenu" then 
-  love.graphics.draw(menu, w1/3.5, h1/5, 0, 2, 2)
-  --love.graphics.setFont(love.graphics.newFont("src/Super_Shiny.ttf", 200))
-  --love.graphics.printf("GAME", 0, h1/2-250, w1, "center")
-  --love.graphics.setFont(love.graphics.newFont("src/Super_Shiny.ttf", 50))
-  --love.graphics.printf("Pulsa 1. Jugar", 0, h1/2 - 50, w1, "center") --Opción de jugar
-  --love.graphics.printf("Pulsa 2. Salir", 0, h1/2 + 50, w1, "center")
-  --love.graphics.setFont(love.graphics.newFont("src/Super_Shiny.ttf", 24))
-
-elseif gameState == "Play" then
-  for _, v in ipairs(actorList) do
-    v:draw()
-  end
-
-elseif gameState == "GameOver" then 
-  love.graphics.setFont(love.graphics.newFont("src/Super_Shiny.ttf", 200))
-  love.graphics.setColor(1, 0, 0)
-  love.graphics.printf("Game Over", 0, h1/2 - 200, w1, "center")
-  love.graphics.setColor(1, 1, 1)
-  love.graphics.setFont(love.graphics.newFont("src/Super_Shiny.ttf", 24))
+    if currentScene and currentScene.draw then
+        currentScene:draw()
+    end
 end
+
+function love.mousepressed(x, y, button)
+    if currentScene and currentScene.mousepressed then
+        currentScene:mousepressed(x, y, button)
+    end
 end
 
 function love.keypressed(key)
-  if gameState == "MainMenu" then 
-
-    if key == "space" then 
-      gameState = "Play"
-
-    elseif key == "escape" then 
-      love.event.quit()
+    if currentScene and currentScene.keypressed then
+        currentScene:keypressed(key)
     end
-
-  end
 end
