@@ -37,7 +37,6 @@ function GameController:spawnMonsters()
     local countNormal = math.floor(total * 0.75)
     local countTri = total - countNormal
 
-    -- si aún no hay triángulos, todos son normales
     if self.level < 3 then
         countNormal = total
         countTri = 0
@@ -65,6 +64,14 @@ function GameController:update(dt)
         for _, m in ipairs(self.monsters) do
             m:update(dt)
         end
+
+        local trappedCount = 0
+        for _, m in ipairs(self.monsters) do
+            if m.state == "trapped" then
+                trappedCount = trappedCount + 1
+            end
+        end
+        self.caughtThisLevel = trappedCount
 
         if self.caughtThisLevel >= self.targetThisLevel then
             self:levelComplete()
@@ -97,8 +104,7 @@ function GameController:draw()
         love.graphics.setStencilTest()
         self.ui:draw()
     elseif self.state == "upgrade" then
-    self:drawUpgradeMenu()
-
+        self:drawUpgradeMenu()
     elseif self.state == "gameover" then
         self:drawGameOver()
     end
@@ -120,9 +126,11 @@ function GameController:mousepressed(x, y, button)
     if self.state == "playing" then
         for _, m in ipairs(self.monsters) do
             if m.state ~= "trapped" and m:containsPoint(x, y) then
-                m:trap()
-                self.caughtThisLevel = self.caughtThisLevel + 1
-                self.score = self.score + 10
+                local nowTrapped = m:trap()
+                if nowTrapped then
+                    self.caughtThisLevel = self.caughtThisLevel + 1
+                    self.score = self.score + (m.kind == "triangle" and 20 or 10)
+                end
                 break
             end
         end
@@ -136,9 +144,7 @@ function GameController:mousepressed(x, y, button)
     end
 end
 
--- =======================
 -- 🔹 Transiciones
--- =======================
 function GameController:returnToMenu()
     self.isTransitioning = true
     self.transitionAlpha = 1
@@ -184,7 +190,6 @@ function GameController:updateTransition(dt)
         end
     end
 
-    -- al terminar transición de volver al menú
     if self.returningToMenu then
         if self.onReturn then
             self.onReturn()
@@ -198,28 +203,27 @@ function GameController:openUpgradeMenu()
     self.isTransitioning = false
     self.transitionAlpha = 0
 
-    -- Inicializamos valores persistentes si no existen
     self.scoreMultiplier = self.scoreMultiplier or 1
     self.bonusLight = self.bonusLight or 0
     self.bonusTime = self.bonusTime or 0
 
     self.upgrades = {
-        { 
-            text = "+15 Rango de Luz", 
+        {
+            text = "+15 Rango de Luz",
             apply = function(g)
                 g.bonusLight = g.bonusLight + 15
                 g.lightRadius = g.lightRadius + 15
             end
         },
-        { 
-            text = "+5s Tiempo Extra", 
+        {
+            text = "+2,5s Tiempo Extra",
             apply = function(g)
-                g.bonusTime = g.bonusTime + 5
-                g.timeLeft = g.timeLeft + 5
+                g.bonusTime = g.bonusTime + 2.5
+                g.timeLeft = g.timeLeft + 2.5
             end
         },
-        { 
-            text = "+10% dificultad (+10%pt)", 
+        {
+            text = "+10% dificultad (+10%pt)",
             apply = function(g)
                 g.scoreMultiplier = g.scoreMultiplier * 1.1
                 for _, m in ipairs(g.monsters) do
@@ -230,10 +234,9 @@ function GameController:openUpgradeMenu()
     }
 end
 
-
 function GameController:startNextLevel()
     self.level = self.level + 1
-    self.timeLeft = 10 + (self.level * 3) + (self.bonusTime or 0)
+    self.timeLeft = 10 + self.level + (self.bonusTime or 0)
     self.targetThisLevel = 5 + self.level
     self.caughtThisLevel = 0
 
@@ -251,10 +254,10 @@ function GameController:startNextLevel()
     self.transitionTimer = 0
 end
 
-
 function GameController:gameOver()
     self.state = "gameover"
 end
+
 function GameController:handleUpgradeClick(x, y)
     local w, h = love.graphics.getDimensions()
     local font = love.graphics.getFont()
@@ -272,6 +275,7 @@ function GameController:handleUpgradeClick(x, y)
         end
     end
 end
+
 function GameController:drawGameOver()
     local w, h = love.graphics.getDimensions()
 
@@ -282,7 +286,6 @@ function GameController:drawGameOver()
     love.graphics.setFont(love.graphics.newFont(24))
     love.graphics.printf("Puntuación total: " .. self.score, 0, h / 2 + 10, w, "center")
 
-    -- texto clickable
     love.graphics.setFont(love.graphics.newFont(20))
     local text = "Haz CLICK para volver al menú"
     local font = love.graphics.getFont()
@@ -297,7 +300,6 @@ function GameController:drawGameOver()
     love.graphics.setColor(hovered and {1, 0.9, 0.3} or {1, 1, 1})
     love.graphics.print(text, x, y)
 
-    -- guardamos botón para detectar clic
     self.gameOverButton = {x = x, y = y, w = textWidth, h = textHeight}
 end
 

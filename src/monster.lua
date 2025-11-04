@@ -13,12 +13,12 @@ function Monster:new(x, y, kind)
         o.speed = 80 + math.random() * 40
         o.radius = 15
         o.color = {0.8, 0.2, 0.2}
-        o.clicksToTrap = 1   -- solo un clic
+        o.clicksToTrap = 1
     elseif o.kind == "triangle" then
         o.speed = 120 + math.random() * 40
         o.radius = 10
         o.color = {1, 0.9, 0.2}
-        o.clicksToTrap = 2   -- necesita dos clics
+        o.clicksToTrap = 2
     end
 
     o.clicksDone = 0
@@ -79,32 +79,31 @@ end
 
 function Monster:containsPoint(px, py)
     local dx, dy = self.x - px, self.y - py
-
-    -- 📏 hitbox más grande para el triángulo
     local hitboxRadius = self.radius
     if self.kind == "triangle" then
         hitboxRadius = hitboxRadius * 1.6
     end
-
     return (dx * dx + dy * dy) <= (hitboxRadius * hitboxRadius)
 end
 
 function Monster:trap()
-    if self.state == "trapped" then return end
+    if self.state == "trapped" then return false end
 
     self.clicksDone = self.clicksDone + 1
+    local need = self.clicksToTrap
 
-    if self.clicksDone >= self.clicksToTrap then
+    if self.clicksDone >= need then
         self.state = "trapped"
+        return true
     else
-        -- 🟧 cambia a naranja y duplica velocidad si ya fue clicado una vez
         if self.kind == "triangle" then
             self.color = {1, 0.6, 0.1}
             self.speed = self.speed * 2
         end
     end
-end
 
+    return false
+end
 
 setmetatable(Monster, { __call = function(cls, ...) return cls:new(...) end })
 return Monster
