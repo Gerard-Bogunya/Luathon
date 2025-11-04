@@ -1,5 +1,6 @@
 local UI = require("src.ui")
 local Monster = require("src.monster")
+local Boss = require("src.boss")
 
 local GameController = {}
 GameController.__index = GameController
@@ -15,6 +16,7 @@ function GameController:new(onReturn)
     o.state = "playing"
 
     o.monsters = {}
+    o.boss = nil
     o.ui = UI:new(o)
     o:spawnMonsters()
 
@@ -26,6 +28,10 @@ function GameController:new(onReturn)
     o.returningToMenu = false
 
     o.onReturn = onReturn
+
+    -- debug helper (evita múltiples activaciones)
+    o.debugSkipPressed = false
+
     return o
 end
 
@@ -33,17 +39,27 @@ end
 function GameController:spawnMonsters()
     self.monsters = {}
 
-    local total = self.targetThisLevel
+    local w, h = love.graphics.getDimensions()
+
+    if self.level == 5 then
+        -- Nivel del jefe: sólo boss + 2 triángulos
+        self.boss = Boss:new(w / 2, h / 2)
+        for i = 1, 2 do
+            table.insert(self.monsters, Monster(math.random(40, w - 40), math.random(40, h - 40), "triangle"))
+        end
+        return
+    else
+        self.boss = nil
+    end
+
+    local total = self.targetThisLevel or 5
     local countNormal = math.floor(total * 0.75)
     local countTri = total - countNormal
 
-    -- si aún no hay triángulos, todos son normales
     if self.level < 3 then
         countNormal = total
         countTri = 0
     end
-
-    local w, h = love.graphics.getDimensions()
 
     for i = 1, countNormal do
         table.insert(self.monsters, Monster(math.random(40, w - 40), math.random(40, h - 40), "normal"))
@@ -53,6 +69,7 @@ function GameController:spawnMonsters()
         table.insert(self.monsters, Monster(math.random(40, w - 40), math.random(40, h - 40), "triangle"))
     end
 end
+
 
 -- 🕹️ Update
 function GameController:update(dt)
@@ -67,24 +84,39 @@ function GameController:update(dt)
     end
 
     if self.state == "playing" then
+        -- actualizar monsters
         for _, m in ipairs(self.monsters) do
             m:update(dt)
         end
 
+        -- actualizar boss (si existe), separado del loop de monsters
+        if self.boss then
+            self.boss:update(dt)
+        end
+
+        -- recalcular atrapados (incluye monsters y boss si trapped)
         local trappedCount = 0
         for _, m in ipairs(self.monsters) do
             if m.state == "trapped" then
                 trappedCount = trappedCount + 1
             end
         end
+        if self.boss and (self.boss.state == "trapped" or self.boss.state == "weakened" and self.boss.state == "trapped") then
+            -- si boss está atrapado cuenta como 1
+            trappedCount = trappedCount + 1
+        end
         self.caughtThisLevel = trappedCount
 
+        -- comprobar final de nivel / tiempo
         if self.caughtThisLevel >= self.targetThisLevel then
             self:levelComplete()
-        elseif self.timeLeft > 0 then
-            self.timeLeft = self.timeLeft - dt
-            if self.timeLeft <= 0 then
-                self:gameOver()
+        else
+            if self.timeLeft > 0 then
+                self.timeLeft = self.timeLeft - dt
+                if self.timeLeft <= 0 then
+                    self.timeLeft = 0
+                    self:gameOver()
+                end
             end
         end
     end
@@ -101,6 +133,13 @@ function GameController:draw()
     end
 
     if self.state == "playing" then
+
+        -- dibujar boss primero (si existe)
+        if self.boss then
+            self.boss:draw(true)
+        end
+
+        -- dibujar monsters
         for _, m in ipairs(self.monsters) do
             m:draw(true)
         end
@@ -134,7 +173,23 @@ end
 -- 🖱️ Input
 function GameController:mousepressed(x, y, button)
     if button ~= 1 then return end
+
     if self.state == "playing" then
+        -- si hay boss y clicas sobre él: procesar primero
+        if self.boss and self.boss.state ~= "trapped" then
+            if self.boss:containsPoint(x, y) then
+                if self.boss.state == "weakened" then
+                    self.boss.state = "trapped"
+                    self.caughtThisLevel = self.caughtThisLevel + 1
+                    self.score = self.score + 50
+                else
+                    self.boss:hit()
+                end
+                return
+            end
+        end
+
+        -- clic en monsters
         for _, m in ipairs(self.monsters) do
             if m.state ~= "trapped" and m:containsPoint(x, y) then
                 m:trap()
@@ -155,21 +210,29 @@ function GameController:mousepressed(x, y, button)
     end
 end
 
+-- permitir tecla '5' como debug (se ejecuta en keypressed, no en update)
+function GameController:keypressed(key)
+    if key == "5" then
+        -- forzar ir al nivel 5 de forma limpia
+        self.level = 4
+        self:startNextLevel() -- startNextLevel incrementará a 5 y hará spawn correctamente
+    end
+end
+
 -- =======================
 -- 🔹 Transiciones
 -- =======================
 function GameController:returnToMenu()
-   function GameController:returnToMenu()
     self.isTransitioning = true
     self.transitionAlpha = 1
     self.transitionTimer = 1
     self.showMessage = "Volviendo al menú..."
     self.transitionCallback = function()
-        -- 🔹 Restaurar el tamaño original de la ventana
+        -- Restaurar el tamaño original de la ventana (ajusta a tu resolución base si hace falta)
         local flags = select(3, love.window.getMode())
         love.window.setMode(480, 360, flags)
 
-        -- 🔹 Reset de valores básicos por si el jugador vuelve a empezar
+        -- Reset valores básicos
         self.level = 1
         self.lightRadius = 100
         self.bonusLight = 0
@@ -178,7 +241,6 @@ function GameController:returnToMenu()
 
         self.returningToMenu = true
     end
-end
 end
 
 function GameController:levelComplete()
@@ -263,72 +325,117 @@ end
 function GameController:startNextLevel()
     self.level = self.level + 1
     self.timeLeft = 10 + (self.level) + (self.bonusTime or 0)
-    self.targetThisLevel = 5 + self.level
+    
+    -- 🧩 Ajuste del número de enemigos
+    if self.level == 5 then
+        self.targetThisLevel = 3  -- solo 3 enemigos: boss + 2 triángulos
+    else
+        self.targetThisLevel = 5 + self.level
+    end
+
     self.caughtThisLevel = 0
 
-    local w, h, flags = love.window.getMode()
+    -- 🪟 Ajuste del tamaño real según el nivel
+    local baseW, baseH = 480, 360
     local growth = 80
-    love.window.setMode(w + growth, h + math.floor(growth * 0.75), flags)
+    local w = baseW + (self.level - 1) * growth
+    local h = baseH + math.floor((self.level - 1) * growth * 0.75)
+    local _, _, flags = love.window.getMode()
+    love.window.setMode(w, h, flags)
 
     self.lightRadius = 80 + (self.bonusLight or 0)
     self:spawnMonsters()
 
+    -- 👇 Control de intros según nivel
     if self.level == 3 then
         self:showNewEnemyIntro()
+    elseif self.level == 5 then
+        self:showBossIntro()
     else
         self:continueLevelStart()
     end
 end
 
-function GameController:continueLevelStart()
-    self.state = "playing"
-    self.isTransitioning = true
-    self.transitionAlpha = 1
-    self.showMessage = "Expanding Area..."
-    self.transitionTimer = 0
-end
 
 -- =======================
 -- 🟡 Intro nuevo enemigo
 -- =======================
 function GameController:showNewEnemyIntro()
     self.state = "intro_enemy"
+    self.introType = "triangle"
+    self.introTimer = 0
+end
+
+function GameController:showBossIntro()
+    self.state = "intro_enemy"
+    self.introType = "boss"
     self.introTimer = 0
 end
 
 function GameController:updateIntroEnemy(dt)
     self.introTimer = self.introTimer + dt
-    if self.introTimer > 2.5 then
+    if self.introTimer > 5 then
         self:continueLevelStart()
     end
 end
 
 function GameController:drawIntroEnemy()
     local w, h = love.graphics.getDimensions()
-    love.graphics.setFont(love.graphics.newFont(36))
+    local time = love.timer.getTime()
+    local pulse = 1 + 0.15 * math.sin(time * 6)
 
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("¡Nuevo Enemigo!", 0, h * 0.25, w, "center")
 
-    -- 💓 Efecto de latido en el triángulo
-    local time = love.timer.getTime()
-    local pulse = 1 + 0.15 * math.sin(time * 6)  -- ajusta 6 para velocidad y 0.15 para intensidad
+    if self.introType == "triangle" then
+        love.graphics.setFont(love.graphics.newFont(36))
+        love.graphics.printf("¡Nuevo Enemigo!", 0, h * 0.25, w, "center")
 
+        love.graphics.push()
+        love.graphics.translate(w / 2, h * 0.5)
+        love.graphics.scale(pulse)
+        love.graphics.setColor(1, 0.9, 0.2)
+        local size = 25
+        love.graphics.polygon("fill", 0, -size, size * 0.8, size, -size * 0.8, size)
+        love.graphics.setColor(0, 0, 0)
+        love.graphics.polygon("line", 0, -size, size * 0.8, size, -size * 0.8, size)
+        love.graphics.pop()
+
+        love.graphics.setFont(love.graphics.newFont(20))
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.printf(
+            "Los triángulos requieren dos clics.\nTras el primero, se enfurecen y duplican su velocidad.",
+            w * 0.1, h * 0.65, w * 0.8, "center"
+        )
+
+    elseif self.introType == "boss" then
+    love.graphics.setFont(love.graphics.newFont(36))
+    love.graphics.setColor(1, 0.3, 0.3)
+
+    -- 🔹 Título un poco más arriba y centrado
+    love.graphics.printf("¡Nuevo Jefe!", 0, h * 0.18, w, "center")
+
+    -- 🔹 Boss centrado visualmente con efecto de latido
     love.graphics.push()
-    love.graphics.translate(w / 2, h * 0.5)
-    love.graphics.scale(pulse)
-    love.graphics.setColor(1, 0.9, 0.2)
-    local size = 25
-    love.graphics.polygon("fill", 0, -size, size * 0.8, size, -size * 0.8, size)
+    love.graphics.translate(w / 2, h * 0.47)
+    love.graphics.scale(pulse * 2.2)
+    love.graphics.setColor(0.8, 0.1, 0.1)
+    love.graphics.circle("fill", 0, 0, 40)
     love.graphics.setColor(0, 0, 0)
-    love.graphics.polygon("line", 0, -size, size * 0.8, size, -size * 0.8, size)
+    love.graphics.circle("line", 0, 0, 40)
     love.graphics.pop()
 
+    -- 🔹 Descripción más abajo para que no se sobreponga al boss
     love.graphics.setFont(love.graphics.newFont(20))
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Los triángulos necesitan dos clics. Tras el primero, se enfurecen y se vuelven más rápidos.", 
-        w * 0.1, h * 0.65, w * 0.8, "center")
+    love.graphics.printf(
+        "Golpéalo 4 veces. Cada vez que lo hieres se hace más pequeño y se teletransporta.\n¡Cuando esté débil, podrás atraparlo!",
+        w * 0.1, h * 0.7, w * 0.8, "center"
+    )
 end
+
+end
+
+
 
 -- =======================
 -- 🔻 Game Over & Upgrade UI
@@ -400,6 +507,14 @@ function GameController:drawUpgradeMenu()
         love.graphics.setColor(hovered and {1, 0.9, 0.3} or {1, 1, 1})
         love.graphics.print(up.text, x, y)
     end
+end
+function GameController:continueLevelStart()
+    -- Cierra la intro y arranca la transición normal de inicio de nivel
+    self.state = "playing"
+    self.isTransitioning = true
+    self.transitionAlpha = 1
+    self.showMessage = "Expanding Area..."
+    self.transitionTimer = 0
 end
 
 return GameController
