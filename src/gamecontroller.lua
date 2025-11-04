@@ -1,10 +1,9 @@
--- src/gamecontroller.lua
 local UI = require("src.ui")
 
 local GameController = {}
 GameController.__index = GameController
 
-function GameController:new()
+function GameController:new(onReturn)
     local o = setmetatable({}, self)
     o.level = 1
     o.score = 0
@@ -23,8 +22,10 @@ function GameController:new()
     o.showMessage = nil
     o.transitionTimer = 0
     o.transitionCallback = nil
-
     o.returningToMenu = false
+
+    -- callback que se usará para volver al menú
+    o.onReturn = onReturn
 
     return o
 end
@@ -214,8 +215,8 @@ end
 -- =======================
 function GameController:returnToMenu()
     self.isTransitioning = true
-    self.transitionAlpha = 0
-    self.transitionTimer = 0
+    self.transitionAlpha = 1
+    self.transitionTimer = 1
     self.showMessage = "Volviendo al menú..."
     self.transitionCallback = function()
         self.returningToMenu = true
@@ -257,9 +258,11 @@ function GameController:updateTransition(dt)
         end
     end
 
-    -- cuando acaba la transición y hay que volver al menú
+    -- al terminar transición de volver al menú
     if self.returningToMenu then
-        gameState = "menu"
+        if self.onReturn then
+            self.onReturn()
+        end
         self.returningToMenu = false
     end
 end

@@ -24,8 +24,14 @@ function Menu:new(onPlay)
     o.lightRadius = 80
     o.hover = nil
 
+    -- ✅ valores iniciales por si draw() se llama antes de update()
+    local cx, cy = w / 2, h * 0.35
+    o.lightX = cx
+    o.lightY = cy
+
     return o
 end
+
 
 function Menu:update(dt)
     self.angle = self.angle + dt * 0.9
