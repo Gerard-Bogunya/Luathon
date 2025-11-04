@@ -5,7 +5,7 @@ local currentScene = nil
 
 function love.load()
     math.randomseed(os.time())
-    love.window.setMode(640, 480, { resizable = false })
+    love.window.setMode(480, 360, { resizable = false })
 
     -- función que inicia el juego (crea GameController)
     local function start()

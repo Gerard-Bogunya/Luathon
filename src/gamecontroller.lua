@@ -119,23 +119,26 @@ function GameController:draw()
         love.graphics.setStencilTest()
         self.ui:draw()
 
-    elseif self.state == "upgrade" then
-        love.graphics.setFont(love.graphics.newFont(32))
-        local font = love.graphics.getFont()
-        local mx, my = love.mouse.getPosition()
+   elseif self.state == "upgrade" then
+    love.graphics.setFont(love.graphics.newFont(32))
+    local font = love.graphics.getFont()
+    local mx, my = love.mouse.getPosition()
 
-        love.graphics.setColor(1, 1, 1)
-        love.graphics.printf("Elige una mejora", 0, h * 0.25, w, "center")
+    -- 🟦 Texto del título "Elige una mejora" más arriba y color azul suave
+    love.graphics.setColor(0.4, 0.7, 1.0) -- azul clarito
+    love.graphics.printf("Elige una mejora", 0, h * 0.15, w, "center")  -- antes estaba 0.25
 
-        for i, up in ipairs(self.upgrades) do
-            local textWidth = font:getWidth(up.text)
-            local textHeight = font:getHeight()
-            local x = (w / 2) - (textWidth / 2)
-            local y = h * 0.4 + (i - 1) * 80
-            local hovered = mx >= x and mx <= x + textWidth and my >= y and my <= y + textHeight
-            love.graphics.setColor(hovered and {1, 0.9, 0.3} or {1, 1, 1})
-            love.graphics.print(up.text, x, y)
-        end
+    -- 🔹 Dibuja las mejoras con más separación
+    for i, up in ipairs(self.upgrades) do
+        local textWidth = font:getWidth(up.text)
+        local textHeight = font:getHeight()
+        local x = (w / 2) - (textWidth / 2)
+        local y = h * 0.35 + (i - 1) * 80  -- más separación vertical (antes era 0.4 y 80)
+        local hovered = mx >= x and mx <= x + textWidth and my >= y and my <= y + textHeight
+        love.graphics.setColor(hovered and {1, 0.9, 0.3} or {1, 1, 1})
+        love.graphics.print(up.text, x, y)
+    end
+
 
     elseif self.state == "gameover" then
         love.graphics.setFont(love.graphics.newFont(40))
@@ -187,7 +190,22 @@ function GameController:mousepressed(x, y, button)
             end
         end
 
-    elseif self.state == "upgrade" then
+elseif self.state == "upgrade" then
+        local w, h = love.graphics.getDimensions()
+        local font = love.graphics.getFont()
+        for i, up in ipairs(self.upgrades) do
+            local textWidth = font:getWidth(up.text)
+            local textHeight = font:getHeight()
+            local tx = (w / 2) - (textWidth / 2)
+            local ty = h * 0.4 + (i - 1) * 80
+
+            if x >= tx and x <= tx + textWidth and y >= ty and y <= ty + textHeight then
+                up.apply(self)
+                self:startNextLevel()  -- inicia el siguiente nivel tras aplicar
+                return
+            end
+        end
+    
         local w, h = love.graphics.getDimensions()
         local font = love.graphics.getFont()
         for i, up in ipairs(self.upgrades) do
@@ -271,32 +289,60 @@ function GameController:openUpgradeMenu()
     self.state = "upgrade"
     self.isTransitioning = false
     self.transitionAlpha = 0
+
+    -- Inicializamos valores persistentes si no existen
+    self.scoreMultiplier = self.scoreMultiplier or 1
+    self.bonusLight = self.bonusLight or 0
+    self.bonusTime = self.bonusTime or 0
+
     self.upgrades = {
-        { text = "+15 Rango de Luz", apply = function(g) g.lightRadius = g.lightRadius + 15 end },
-        { text = "+5s Tiempo Extra", apply = function(g) g.timeLeft = g.timeLeft + 5 end },
-        { text = "+10% Velocidad Enemigos (más reto)", apply = function(g)
-            for _, m in ipairs(g.monsters) do
-                m.speed = m.speed * 1.1
+        { 
+            text = "+15 Rango de Luz", 
+            apply = function(g)
+                g.bonusLight = g.bonusLight + 15
+                g.lightRadius = g.lightRadius + 15
             end
-        end }
+        },
+        { 
+            text = "+5s Tiempo Extra", 
+            apply = function(g)
+                g.bonusTime = g.bonusTime + 5
+                g.timeLeft = g.timeLeft + 5
+            end
+        },
+        { 
+            text = "+10% dificultad (+10%pt)", 
+            apply = function(g)
+                g.scoreMultiplier = g.scoreMultiplier * 1.1
+                for _, m in ipairs(g.monsters) do
+                    m.speed = m.speed * 1.1
+                end
+            end
+        }
     }
 end
 
+
 function GameController:startNextLevel()
     self.level = self.level + 1
-    self.timeLeft = 30 + (self.level * 3)
+    self.timeLeft = 10 + (self.level * 3) + (self.bonusTime or 0)
     self.targetThisLevel = 5 + self.level
     self.caughtThisLevel = 0
+
     local w, h, flags = love.window.getMode()
-    local growth = 70
+    local growth = 80
     love.window.setMode(w + growth, h + math.floor(growth * 0.75), flags)
+
+    self.lightRadius = 80 + (self.bonusLight or 0)
     self:spawnMonsters()
+
     self.state = "playing"
     self.isTransitioning = true
     self.transitionAlpha = 1
     self.showMessage = "Expanding Area..."
     self.transitionTimer = 0
 end
+
 
 function GameController:gameOver()
     self.state = "gameover"
