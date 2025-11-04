@@ -87,23 +87,27 @@ function Monster:containsPoint(px, py)
 end
 
 function Monster:trap()
-    if self.state == "trapped" then return false end
+    if self.state == "trapped" then return end
 
-    self.clicksDone = self.clicksDone + 1
-    local need = self.clicksToTrap
-
-    if self.clicksDone >= need then
-        self.state = "trapped"
-        return true
-    else
-        if self.kind == "triangle" then
-            self.color = {1, 0.6, 0.1}
+    if self.type == "triangle" then
+        if not self.hitOnce then
+            self.hitOnce = true
             self.speed = self.speed * 2
+            self.color = {1, 0.5, 0.1} -- color naranja cuando enfurece
+        else
+            self.state = "trapped"
+            if self.onTrapped then
+                self.onTrapped(self.x, self.y)
+            end
+        end
+    else
+        self.state = "trapped"
+        if self.onTrapped then
+            self.onTrapped(self.x, self.y)
         end
     end
-
-    return false
 end
+
 
 setmetatable(Monster, { __call = function(cls, ...) return cls:new(...) end })
 return Monster

@@ -1,6 +1,7 @@
 local UI = require("src.ui")
 local Monster = require("src.monster")
 local Boss = require("src.boss")
+local Particles = require("src.particles")
 
 local GameController = {}
 GameController.__index = GameController
@@ -18,6 +19,7 @@ function GameController:new(onReturn)
     o.monsters = {}
     o.boss = nil
     o.ui = UI:new(o)
+    o.particles = Particles:new()
     o:spawnMonsters()
 
     o.transitionAlpha = 0
@@ -28,8 +30,6 @@ function GameController:new(onReturn)
     o.returningToMenu = false
 
     o.onReturn = onReturn
-
-    -- debug helper (evita múltiples activaciones)
     o.debugSkipPressed = false
 
     return o
@@ -38,14 +38,16 @@ end
 -- 🟠 Spawning
 function GameController:spawnMonsters()
     self.monsters = {}
-
     local w, h = love.graphics.getDimensions()
 
     if self.level == 5 then
-        -- Nivel del jefe: sólo boss + 2 triángulos
         self.boss = Boss:new(w / 2, h / 2)
         for i = 1, 2 do
-            table.insert(self.monsters, Monster(math.random(40, w - 40), math.random(40, h - 40), "triangle"))
+            local m = Monster(math.random(40, w - 40), math.random(40, h - 40), "triangle")
+            m.onTrapped = function(x, y)
+                self.particles:spawn(x, y, m.kind, m.color)
+            end
+            table.insert(self.monsters, m)
         end
         return
     else
@@ -62,14 +64,21 @@ function GameController:spawnMonsters()
     end
 
     for i = 1, countNormal do
-        table.insert(self.monsters, Monster(math.random(40, w - 40), math.random(40, h - 40), "normal"))
+        local m = Monster(math.random(40, w - 40), math.random(40, h - 40), "normal")
+        m.onTrapped = function(x, y)
+            self.particles:spawn(x, y, m.kind, m.color)
+        end
+        table.insert(self.monsters, m)
     end
 
     for i = 1, countTri do
-        table.insert(self.monsters, Monster(math.random(40, w - 40), math.random(40, h - 40), "triangle"))
+        local m = Monster(math.random(40, w - 40), math.random(40, h - 40), "triangle")
+        m.onTrapped = function(x, y)
+            self.particles:spawn(x, y, m.kind, m.color)
+        end
+        table.insert(self.monsters, m)
     end
 end
-
 
 -- 🕹️ Update
 function GameController:update(dt)
@@ -77,37 +86,30 @@ function GameController:update(dt)
         self:updateIntroEnemy(dt)
         return
     end
-
     if self.isTransitioning then
         self:updateTransition(dt)
         return
     end
 
     if self.state == "playing" then
-        -- actualizar monsters
         for _, m in ipairs(self.monsters) do
             m:update(dt)
         end
-
-        -- actualizar boss (si existe), separado del loop de monsters
         if self.boss then
             self.boss:update(dt)
         end
 
-        -- recalcular atrapados (incluye monsters y boss si trapped)
         local trappedCount = 0
         for _, m in ipairs(self.monsters) do
             if m.state == "trapped" then
                 trappedCount = trappedCount + 1
             end
         end
-        if self.boss and (self.boss.state == "trapped" or self.boss.state == "weakened" and self.boss.state == "trapped") then
-            -- si boss está atrapado cuenta como 1
+        if self.boss and self.boss.state == "trapped" then
             trappedCount = trappedCount + 1
         end
         self.caughtThisLevel = trappedCount
 
-        -- comprobar final de nivel / tiempo
         if self.caughtThisLevel >= self.targetThisLevel then
             self:levelComplete()
         else
@@ -119,6 +121,8 @@ function GameController:update(dt)
                 end
             end
         end
+
+        self.particles:update(dt)
     end
 end
 
@@ -133,16 +137,14 @@ function GameController:draw()
     end
 
     if self.state == "playing" then
-
-        -- dibujar boss primero (si existe)
         if self.boss then
             self.boss:draw(true)
         end
-
-        -- dibujar monsters
         for _, m in ipairs(self.monsters) do
             m:draw(true)
         end
+
+        self.particles:draw()
 
         local mx, my = love.mouse.getPosition()
         love.graphics.stencil(function()
@@ -173,15 +175,15 @@ end
 -- 🖱️ Input
 function GameController:mousepressed(x, y, button)
     if button ~= 1 then return end
-
     if self.state == "playing" then
-        -- si hay boss y clicas sobre él: procesar primero
+        -- 👑 Boss click
         if self.boss and self.boss.state ~= "trapped" then
             if self.boss:containsPoint(x, y) then
                 if self.boss.state == "weakened" then
                     self.boss.state = "trapped"
                     self.caughtThisLevel = self.caughtThisLevel + 1
                     self.score = self.score + 50
+                    self.particles:spawn(x, y, "boss", {0.8, 0.1, 0.1})
                 else
                     self.boss:hit()
                 end
@@ -189,14 +191,26 @@ function GameController:mousepressed(x, y, button)
             end
         end
 
-        -- clic en monsters
+        -- 🧟 Monsters click
         for _, m in ipairs(self.monsters) do
             if m.state ~= "trapped" and m:containsPoint(x, y) then
-                m:trap()
-                if m.state == "trapped" then
-                    self.caughtThisLevel = self.caughtThisLevel + 1
-                    self.score = self.score + 10
+                if m.kind == "triangle" then
+                    -- primer clic: enfurece y duplica velocidad
+                    if not m.hitOnce then
+                        m.hitOnce = true
+                        m.color = {1, 0.5, 0} -- naranja
+                        m.speed = m.speed * 2
+                        return
+                    end
                 end
+
+                -- segundo clic o normales
+                m:trap()
+                if m.onTrapped then
+                    m.onTrapped(m.x, m.y)
+                end
+                self.caughtThisLevel = self.caughtThisLevel + 1
+                self.score = self.score + 10
                 break
             end
         end
@@ -210,12 +224,11 @@ function GameController:mousepressed(x, y, button)
     end
 end
 
--- permitir tecla '5' como debug (se ejecuta en keypressed, no en update)
+
 function GameController:keypressed(key)
     if key == "5" then
-        -- forzar ir al nivel 5 de forma limpia
         self.level = 4
-        self:startNextLevel() -- startNextLevel incrementará a 5 y hará spawn correctamente
+        self:startNextLevel()
     end
 end
 
